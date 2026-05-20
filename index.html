@@ -2,794 +2,589 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Shift Tracker">
 <meta name="theme-color" content="#1D9E75">
 <title>Shift Tracker</title>
-<script>
-// Inline PWA manifest
-const manifest = {
-  name: 'Shift Tracker', short_name: 'Shifts',
-  start_url: '.', display: 'standalone',
-  background_color: '#F7F7F5', theme_color: '#1D9E75',
-  icons: [
-    { src: 'https://via.placeholder.com/192/1D9E75/ffffff?text=S', sizes: '192x192', type: 'image/png' },
-    { src: 'https://via.placeholder.com/512/1D9E75/ffffff?text=S', sizes: '512x512', type: 'image/png' }
-  ]
-};
-const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-const link = document.createElement('link');
-link.rel = 'manifest'; link.href = URL.createObjectURL(blob);
-document.head.appendChild(link);
-
-// Service worker for offline support
-if ('serviceWorker' in navigator) {
-  const swCode = `
-    self.addEventListener('install', e => e.waitUntil(
-      caches.open('shift-v1').then(c => c.addAll(['/Shift-Tracker/']))
-    ));
-    self.addEventListener('fetch', e => e.respondWith(
-      caches.match(e.request).then(r => r || fetch(e.request))
-    ));
-  `;
-  const swBlob = new Blob([swCode], {type: 'application/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(swBlob));
-}
-</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-  :root {
-    --green: #1D9E75;
-    --green-light: #E1F5EE;
-    --green-dark: #0F6E56;
-    --red: #D85A30;
-    --red-light: #FAECE7;
-    --red-dark: #993C1D;
-    --red-border: #F0997B;
-    --amber-light: #FAEEDA;
-    --amber-dark: #854F0B;
-    --amber-deeper: #633806;
-    --blue-light: #E6F1FB;
-    --blue-dark: #185FA5;
-    --purple-light: #EEEDFE;
-    --purple-dark: #534AB7;
-    --bg: #F7F7F5;
-    --surface: #FFFFFF;
-    --border: rgba(0,0,0,0.1);
-    --border-mid: rgba(0,0,0,0.18);
-    --text: #1A1A18;
-    --text-muted: #6B6B67;
-    --radius: 12px;
-    --radius-sm: 8px;
-    --radius-pill: 99px;
-  }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-    overscroll-behavior: none;
-  }
-
-  .app {
-    max-width: 430px;
-    margin: 0 auto;
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    position: relative;
-  }
-
-  /* Screens */
-  .screen { display: none; flex: 1; flex-direction: column; padding: 0 16px; padding-bottom: 90px; overflow-y: auto; }
-  .screen.active { display: flex; }
-
-  /* Topbar */
-  .topbar {
-    display: flex; align-items: center; gap: 10px;
-    padding: 16px 16px 12px;
-    background: var(--surface);
-    border-bottom: 0.5px solid var(--border);
-    position: sticky; top: 0; z-index: 5;
-  }
-  .topbar-avatar {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--green-light); color: var(--green-dark);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 600; flex-shrink: 0;
-  }
-  .topbar h1 { font-size: 17px; font-weight: 600; flex: 1; letter-spacing: -0.2px; }
-  .topbar-month {
-    font-size: 12px; font-weight: 500; color: var(--text-muted);
-    background: var(--bg); border: 0.5px solid var(--border-mid);
-    padding: 4px 10px; border-radius: var(--radius-pill);
-  }
-  .back-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); font-size: 22px; padding: 2px;
-    display: flex; align-items: center;
-  }
-
-  /* Bottom nav */
-  .nav-bottom {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; max-width: 430px;
-    display: flex; background: var(--surface);
-    border-top: 0.5px solid var(--border);
-    padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-    z-index: 10;
-  }
-  .nav-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center;
-    gap: 3px; cursor: pointer; background: none; border: none;
-    font-family: 'DM Sans', sans-serif; color: var(--text-muted);
-    font-size: 10px; font-weight: 500; padding: 4px 0;
-  }
-  .nav-item.active { color: var(--green); }
-  .nav-item svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* Metrics */
-  .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
-  .metric {
-    background: var(--surface); border-radius: var(--radius-sm);
-    border: 0.5px solid var(--border); padding: 12px;
-  }
-  .metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
-  .metric-value { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
-  .metric-value.pos { color: var(--green); }
-  .metric-value.neg { color: var(--red); }
-
-  /* Tab bar */
-  .tab-bar {
-    display: flex; gap: 4px; background: var(--border);
-    border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px;
-    background: rgba(0,0,0,0.06);
-  }
-  .tab {
-    flex: 1; text-align: center; padding: 7px 0; font-size: 13px;
-    font-weight: 500; border-radius: 6px; cursor: pointer; border: none;
-    background: none; color: var(--text-muted); font-family: 'DM Sans', sans-serif;
-    transition: all 0.15s;
-  }
-  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-
-  /* Section label */
-  .section-label {
-    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
-    letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 600;
-  }
-
-  /* Cards */
-  .card {
-    background: var(--surface); border: 0.5px solid var(--border);
-    border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
-  }
-  .card-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 13px 14px; cursor: pointer;
-    transition: background 0.1s;
-  }
-  .card-row:active { background: var(--bg); }
-  .card-row + .card-row, .card-border { border-top: 0.5px solid var(--border); }
-
-  /* Avatar */
-  .avatar {
-    width: 38px; height: 38px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 600; flex-shrink: 0;
-  }
-  .av-teal { background: var(--green-light); color: var(--green-dark); }
-  .av-blue { background: var(--blue-light); color: var(--blue-dark); }
-  .av-purple { background: var(--purple-light); color: var(--purple-dark); }
-  .av-coral { background: var(--red-light); color: var(--red-dark); }
-  .av-amber { background: var(--amber-light); color: var(--amber-dark); }
-
-  .person-info { flex: 1; min-width: 0; }
-  .person-name { font-size: 15px; font-weight: 500; }
-  .person-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
-
-  /* Badges */
-  .badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill); flex-shrink: 0; }
-  .badge-pos { background: var(--green-light); color: var(--green-dark); }
-  .badge-neg { background: var(--red-light); color: var(--red-dark); }
-  .badge-zero { background: var(--bg); color: var(--text-muted); border: 0.5px solid var(--border-mid); }
-  .badge-bonus { background: var(--amber-light); color: var(--amber-dark); font-size: 11px; padding: 2px 8px; border-radius: var(--radius-pill); }
-
-  /* Chevron */
-  .chevron { font-size: 16px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
-  .chevron svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .chevron.open { transform: rotate(180deg); }
-
-  /* Off days panel */
-  .off-panel { display: none; border-top: 0.5px solid var(--border); padding: 12px 14px; background: var(--bg); }
-  .off-panel.open { display: block; }
-  .off-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; font-weight: 600; }
-  .day-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-  .day-pill {
-    font-size: 12px; padding: 5px 11px; border-radius: var(--radius-pill);
-    font-weight: 500; cursor: pointer; border: 0.5px solid var(--border-mid);
-    background: var(--surface); color: var(--text-muted);
-    user-select: none; transition: all 0.12s;
-  }
-  .day-pill.off { background: var(--red-light); color: var(--red-dark); border-color: var(--red-border); }
-  .off-hint { font-size: 11px; color: var(--text-muted); }
-
-  /* Shift tags */
-  .shift-tag { font-size: 11px; padding: 2px 9px; border-radius: var(--radius-pill); font-weight: 600; }
-  .tag-morning { background: var(--blue-light); color: var(--blue-dark); }
-  .tag-afternoon { background: var(--amber-light); color: var(--amber-dark); }
-  .tag-night { background: var(--purple-light); color: var(--purple-dark); }
-
-  /* Log entry */
-  .log-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-  /* Form */
-  .form-section { margin-top: 14px; }
-  .form-field { margin-bottom: 14px; }
-  .form-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
-  .form-field input, .form-field select, .form-field textarea {
-    width: 100%; padding: 11px 13px; border: 0.5px solid var(--border-mid);
-    border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif;
-    font-size: 15px; background: var(--surface); color: var(--text);
-    outline: none; appearance: none; -webkit-appearance: none;
-  }
-  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
-    border-color: var(--green);
-  }
-  .form-field textarea { height: 72px; resize: none; }
-  .form-field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B6B67' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
-  .divider { height: 0.5px; background: var(--border); margin: 16px 0; }
-  .mult-row { display: flex; gap: 10px; align-items: center; }
-  .mult-row input { width: 80px; flex-shrink: 0; text-align: center; font-size: 17px; font-weight: 600; }
-  .mult-hint { font-size: 13px; color: var(--text-muted); }
-  .bonus-note {
-    background: var(--amber-light); border-radius: var(--radius-sm);
-    padding: 10px 13px; font-size: 13px; color: var(--amber-deeper);
-    margin-bottom: 14px; display: none; align-items: center; gap: 8px; font-weight: 500;
-  }
-  .bonus-note.show { display: flex; }
-
-  /* Off days in form */
-  .form-offdays {
-    background: var(--bg); border: 0.5px solid var(--border);
-    border-radius: var(--radius-sm); padding: 12px; margin-top: 8px;
-  }
-  .saved-flash { font-size: 11px; color: var(--green); font-weight: 600; margin-left: 6px; opacity: 0; transition: opacity 0.2s; }
-  .saved-flash.show { opacity: 1; }
-
-  /* Submit */
-  .submit-btn {
-    width: 100%; background: var(--green); color: white; border: none;
-    border-radius: var(--radius-sm); padding: 14px; font-size: 16px;
-    font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
-    margin-top: 4px; letter-spacing: -0.1px; transition: opacity 0.15s;
-  }
-  .submit-btn:active { opacity: 0.85; }
-
-  /* Add form */
-  .add-box {
-    background: var(--surface); border: 0.5px solid var(--border);
-    border-radius: var(--radius); padding: 14px; margin-bottom: 14px;
-  }
-  .add-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
-  .add-row { display: flex; gap: 8px; }
-  .add-row input { flex: 1; }
-  .add-row button {
-    background: var(--green); color: white; border: none;
-    border-radius: var(--radius-sm); padding: 0 16px; font-size: 14px;
-    font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
-    white-space: nowrap;
-  }
-
-  /* Delete */
-  .delete-btn {
-    background: none; border: none; cursor: pointer; color: var(--red);
-    padding: 6px; display: flex; align-items: center;
-  }
-  .delete-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* Confirm overlay */
-  .overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.4); z-index: 50;
-    align-items: center; justify-content: center; padding: 20px;
-  }
-  .overlay.show { display: flex; }
-  .confirm-box {
-    background: var(--surface); border-radius: var(--radius);
-    padding: 20px; width: 100%; max-width: 320px;
-    border: 0.5px solid var(--border);
-  }
-  .confirm-box p { font-size: 15px; line-height: 1.5; margin-bottom: 16px; }
-  .confirm-actions { display: flex; gap: 8px; }
-  .confirm-actions button {
-    flex: 1; padding: 11px; border-radius: var(--radius-sm);
-    font-size: 15px; font-weight: 600; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; border: 0.5px solid var(--border-mid);
-  }
-  .btn-cancel { background: var(--bg); color: var(--text); }
-  .btn-remove { background: var(--red-light); color: var(--red-dark); border-color: var(--red-border); }
-
-  /* Empty */
-  .empty { padding: 20px 14px; font-size: 14px; color: var(--text-muted); text-align: center; }
-
-  /* Screen padding top */
-  .screen-content { padding-top: 14px; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'DM Sans', sans-serif; background: #F7F7F5; color: #1A1A18; min-height: 100vh; }
+:root {
+  --green:#1D9E75;--green-light:#E1F5EE;--green-dark:#0F6E56;
+  --red:#D85A30;--red-light:#FAECE7;--red-dark:#993C1D;--red-border:#F0997B;
+  --amber-light:#FAEEDA;--amber-dark:#854F0B;--amber-deeper:#633806;
+  --blue-light:#E6F1FB;--blue-dark:#185FA5;--purple-light:#EEEDFE;--purple-dark:#534AB7;
+  --bg:#F7F7F5;--surface:#fff;--border:rgba(0,0,0,0.1);--border-mid:rgba(0,0,0,0.18);
+  --text:#1A1A18;--muted:#6B6B67;--radius:12px;--radius-sm:8px;--radius-pill:99px;
+}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--surface);border-right:0.5px solid var(--border);display:flex;flex-direction:column;padding:24px 0;flex-shrink:0;position:sticky;top:0;height:100vh;}
+.sidebar-header{padding:0 20px 20px;border-bottom:0.5px solid var(--border);margin-bottom:8px;}
+.sidebar-title{font-size:15px;font-weight:700;margin:10px 0 2px;letter-spacing:-0.3px;}
+.sidebar-sub{font-size:12px;color:var(--muted);}
+.main{flex:1;padding:32px;overflow-y:auto;}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;background:none;color:var(--muted);font-weight:400;font-size:14px;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.nav-btn.active{background:var(--green-light);color:var(--green-dark);font-weight:600;}
+.mobile-topbar{display:none;align-items:center;gap:10px;padding:14px 16px 12px;background:var(--surface);border-bottom:0.5px solid var(--border);position:sticky;top:0;z-index:5;}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:0.5px solid var(--border);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:10;}
+.mobile-nav-inner{display:flex;}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;background:none;border:none;color:var(--muted);font-size:10px;font-weight:500;font-family:'DM Sans',sans-serif;padding:4px 0;}
+.mob-nav-btn.active{color:var(--green);}
+@media(max-width:767px){
+  .sidebar{display:none;}.main{padding:16px 16px 90px;}
+  .mobile-topbar{display:flex;}.mobile-nav{display:block;}
+}
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;flex-shrink:0;}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.card-row{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:background 0.1s;}
+.card-row:active{background:var(--bg);}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.metric{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;}
+.metric-label{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+.metric-value{font-size:28px;font-weight:700;letter-spacing:-1px;}
+.badge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--radius-pill);flex-shrink:0;}
+.badge-pos{background:var(--green-light);color:var(--green-dark);}
+.badge-neg{background:var(--red-light);color:var(--red-dark);}
+.badge-zero{background:#F0F0EE;color:var(--muted);border:0.5px solid var(--border-mid);}
+.badge-bonus{background:var(--amber-light);color:var(--amber-dark);font-size:11px;padding:2px 8px;border-radius:var(--radius-pill);font-weight:600;}
+.section-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;font-weight:600;}
+.tab-bar{display:flex;gap:4px;background:rgba(0,0,0,0.06);border-radius:var(--radius-sm);padding:3px;margin-bottom:16px;}
+.tab{flex:1;padding:7px 0;font-size:13px;font-weight:500;border-radius:6px;border:none;cursor:pointer;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+.off-panel{display:none;border-top:0.5px solid var(--border);padding:12px 16px;background:var(--bg);}
+.off-panel.open{display:block;}
+.off-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;}
+.day-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+.day-pill{font-size:12px;padding:5px 11px;border-radius:var(--radius-pill);font-weight:500;cursor:pointer;border:0.5px solid var(--border-mid);background:var(--surface);color:var(--muted);user-select:none;transition:all 0.12s;}
+.day-pill.off{background:var(--red-light);color:var(--red-dark);border-color:var(--red-border);}
+.chevron{color:var(--muted);transition:transform 0.2s;display:flex;flex-shrink:0;}
+.chevron.open{transform:rotate(180deg);}
+.shift-tag{font-size:11px;padding:2px 9px;border-radius:var(--radius-pill);font-weight:600;}
+.tag-morning{background:var(--blue-light);color:var(--blue-dark);}
+.tag-afternoon{background:var(--amber-light);color:var(--amber-dark);}
+.tag-night{background:var(--purple-light);color:var(--purple-dark);}
+.form-field{margin-bottom:16px;}
+.form-field label{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px;}
+.form-field input,.form-field select,.form-field textarea{width:100%;padding:10px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;outline:none;appearance:none;-webkit-appearance:none;}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--green);}
+.form-field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B6B67' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;}
+.form-field textarea{height:72px;resize:none;}
+.divider{height:0.5px;background:var(--border);margin:16px 0;}
+.submit-btn{width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;}
+.add-box{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px;}
+.add-box h3{font-size:14px;font-weight:600;margin-bottom:12px;}
+.add-row{display:flex;gap:8px;}
+.add-row input{flex:1;padding:10px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;}
+.add-row button{background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);padding:0 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.delete-btn{background:none;border:none;cursor:pointer;color:var(--red);display:flex;padding:6px;}
+.form-offdays{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-top:8px;}
+.mult-row{display:flex;gap:10px;align-items:center;}
+.mult-input{width:80px!important;text-align:center;font-weight:600!important;font-size:17px!important;}
+.bonus-note{background:var(--amber-light);border-radius:var(--radius-sm);padding:10px 13px;font-size:13px;color:var(--amber-deeper);margin-top:10px;font-weight:500;display:none;}
+.bonus-note.show{display:block;}
+.empty{text-align:center;padding:24px;font-size:14px;color:var(--muted);}
+.screen{display:none;}.screen.active{display:block;}
+.page-title{font-size:24px;font-weight:700;letter-spacing:-0.5px;margin-bottom:24px;}
+.setup-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.setup-box{background:var(--surface);border-radius:16px;padding:32px;width:100%;max-width:400px;border:0.5px solid var(--border);}
+.setup-icon{width:52px;height:52px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:20px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:50;padding:20px;}
+.overlay.show{display:flex;}
+.confirm-box{background:var(--surface);border-radius:var(--radius);padding:20px;width:100%;max-width:320px;border:0.5px solid var(--border);}
+.confirm-box p{font-size:15px;line-height:1.5;margin-bottom:16px;}
+.confirm-actions{display:flex;gap:8px;}
+.confirm-actions button{flex:1;padding:11px;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-cancel{background:var(--bg);color:var(--text);border:0.5px solid var(--border-mid);}
+.btn-remove{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red-border);}
+.edit-form{border-top:0.5px solid var(--border);padding:12px 16px;background:var(--bg);display:none;}
+.edit-form.show{display:block;}
+.edit-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.edit-row label{min-width:80px;font-size:13px;color:var(--muted);font-weight:500;}
+.edit-row input,.edit-row select{flex:1;padding:8px 10px;border:0.5px solid var(--border-mid);border-radius:6px;font-size:14px;background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;}
+.edit-actions{display:flex;gap:8px;margin-top:12px;}
+.edit-actions button{flex:1;padding:8px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;border:none;}
+.btn-save{background:var(--green);color:#fff;}
 </style>
 </head>
 <body>
-<div class="app">
 
-  <!-- OVERVIEW -->
-  <div id="screen-overview" class="screen active">
-    <div class="topbar">
-      <div class="topbar-avatar">M</div>
-      <h1>Shift tracker</h1>
-      <span class="topbar-month" id="topbar-month"></span>
+<div id="setup" class="setup-wrap">
+  <div class="setup-box">
+    <div class="setup-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
     </div>
-    <div class="screen-content">
-      <div class="metric-grid">
-        <div class="metric"><div class="metric-label">Redeemable</div><div class="metric-value pos" id="m-redeemable">0</div></div>
-        <div class="metric"><div class="metric-label">You owe</div><div class="metric-value neg" id="m-owe">0</div></div>
-        <div class="metric"><div class="metric-label">Swaps</div><div class="metric-value" id="m-swaps">0</div></div>
-      </div>
-      <div class="tab-bar">
-        <button class="tab active" onclick="showTab('balances')">Balances</button>
-        <button class="tab" onclick="showTab('log')">Swap log</button>
-      </div>
-      <div id="tab-balances">
-        <div class="section-label">Team balances</div>
-        <div id="balance-list"></div>
-      </div>
-      <div id="tab-log" style="display:none;">
-        <div class="section-label">Recent swaps</div>
-        <div id="log-list"></div>
-      </div>
-    </div>
-    <div class="nav-bottom">
-      <button class="nav-item active" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Overview
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-team')">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Team
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-log')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Log
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-manage')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Manage
-      </button>
-    </div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:8px;">Welcome to Shift Tracker</div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.5;">Enter your name to get started. You'll be set as the admin for this tracker.</div>
+    <div class="form-field"><label>Your name</label><input type="text" id="setup-input" placeholder="e.g. Mohamed" autofocus></div>
+    <button class="submit-btn" onclick="finishSetup()">Get started</button>
   </div>
-
-  <!-- TEAM -->
-  <div id="screen-team" class="screen">
-    <div class="topbar">
-      <button class="back-btn" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <h1>Team</h1>
-    </div>
-    <div class="screen-content">
-      <div class="section-label">Active members</div>
-      <div id="team-list"></div>
-    </div>
-    <div class="nav-bottom">
-      <button class="nav-item" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Overview
-      </button>
-      <button class="nav-item active" onclick="showScreen('screen-team')">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Team
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-log')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Log
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-manage')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Manage
-      </button>
-    </div>
-  </div>
-
-  <!-- LOG SWAP -->
-  <div id="screen-log" class="screen">
-    <div class="topbar">
-      <button class="back-btn" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <h1>Log a swap</h1>
-    </div>
-    <div class="screen-content">
-      <div class="form-field"><label>Date</label><input type="date" id="f-date"></div>
-      <div class="form-field"><label>Shift time</label>
-        <select id="f-shift"><option>Morning</option><option selected>Afternoon</option><option>Night</option></select>
-      </div>
-      <div class="form-field">
-        <label>Shift owner</label>
-        <select id="f-owner" onchange="renderFormOffDays()"></select>
-        <div class="form-offdays">
-          <div class="off-label">Off days <span class="saved-flash" id="saved-flash">✓ Saved</span></div>
-          <div class="day-pills" id="form-off-pills"></div>
-          <div class="off-hint">Tap to update their permanent off days</div>
-        </div>
-      </div>
-      <div class="form-field"><label>Covered by</label><select id="f-coveredby"></select></div>
-      <div class="divider"></div>
-      <div class="form-field">
-        <label>Payback multiplier</label>
-        <div class="mult-row">
-          <input type="number" id="f-mult" value="1" min="1" max="20" step="1" oninput="updateMultHint()">
-          <span class="mult-hint" id="mult-hint">Standard — 1 shift back</span>
-        </div>
-      </div>
-      <div class="bonus-note" id="bonus-note">⭐ <span id="bonus-text"></span></div>
-      <div class="form-field"><label>Notes / hours</label><textarea id="f-notes" placeholder="e.g. 17:00–22:30"></textarea></div>
-      <button class="submit-btn" onclick="logSwap()">Log swap</button>
-    </div>
-    <div class="nav-bottom">
-      <button class="nav-item" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Overview
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-team')">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Team
-      </button>
-      <button class="nav-item active" onclick="showScreen('screen-log')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Log
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-manage')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Manage
-      </button>
-    </div>
-  </div>
-
-  <!-- MANAGE -->
-  <div id="screen-manage" class="screen">
-    <div class="topbar">
-      <button class="back-btn" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <h1>Manage team</h1>
-    </div>
-    <div class="screen-content">
-      <div class="add-box">
-        <h3>Add a member</h3>
-        <div class="add-row">
-          <input type="text" id="new-name" placeholder="Full name">
-          <button onclick="addMember()">Add</button>
-        </div>
-      </div>
-      <div class="section-label">Remove members</div>
-      <div id="manage-list"></div>
-    </div>
-    <div class="nav-bottom">
-      <button class="nav-item" onclick="showScreen('screen-overview')">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Overview
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-team')">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Team
-      </button>
-      <button class="nav-item" onclick="showScreen('screen-log')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Log
-      </button>
-      <button class="nav-item active" onclick="showScreen('screen-manage')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Manage
-      </button>
-    </div>
-  </div>
-
-  <!-- CONFIRM OVERLAY -->
-  <div class="overlay" id="overlay">
-    <div class="confirm-box">
-      <p id="confirm-msg"></p>
-      <div class="confirm-actions">
-        <button class="btn-cancel" onclick="closeOverlay()">Cancel</button>
-        <button class="btn-remove" onclick="confirmDelete()">Remove</button>
-      </div>
-    </div>
-  </div>
-
 </div>
+
+<div id="app" style="display:none;" class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="avatar" id="sidebar-av" style="width:40px;height:40px;font-size:14px;"></div>
+      <div class="sidebar-title">Shift Tracker</div>
+      <div class="sidebar-sub" id="sidebar-sub"></div>
+    </div>
+    <button class="nav-btn active" onclick="showScreen('overview')" id="nav-overview">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview
+    </button>
+    <button class="nav-btn" onclick="showScreen('team')" id="nav-team">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team
+    </button>
+    <button class="nav-btn" onclick="showScreen('log')" id="nav-log">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Log Swap
+    </button>
+    <button class="nav-btn" onclick="showScreen('manage')" id="nav-manage">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Manage
+    </button>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;">
+    <div class="mobile-topbar">
+      <div class="avatar" id="mob-av" style="width:32px;height:32px;font-size:12px;"></div>
+      <div style="flex:1;font-size:17px;font-weight:600;">Shift Tracker</div>
+      <span id="mob-month" style="font-size:12px;color:var(--muted);background:#F0F0EE;padding:4px 10px;border-radius:99px;border:0.5px solid var(--border-mid);"></span>
+    </div>
+
+    <div class="main">
+      <div id="screen-overview" class="screen active" style="max-width:900px;">
+        <div class="page-title" id="overview-title">Overview</div>
+        <div class="metric-grid">
+          <div class="metric"><div class="metric-label">Redeemable</div><div class="metric-value" id="m-redeem" style="color:var(--green);">0</div></div>
+          <div class="metric"><div class="metric-label">You owe</div><div class="metric-value" id="m-owe" style="color:var(--red);">0</div></div>
+          <div class="metric"><div class="metric-label">Swaps logged</div><div class="metric-value" id="m-swaps">0</div></div>
+        </div>
+        <div class="tab-bar">
+          <button class="tab active" onclick="showTab('balances')">Balances</button>
+          <button class="tab" onclick="showTab('swaplog')">Swap log</button>
+        </div>
+        <div id="tab-balances"><div class="section-label">Team balances</div><div id="balance-list"></div></div>
+        <div id="tab-swaplog" style="display:none;"><div class="section-label">Recent swaps</div><div id="log-list"></div></div>
+      </div>
+
+      <div id="screen-team" class="screen" style="max-width:700px;">
+        <div class="page-title">Team</div>
+        <div class="section-label">Active members</div>
+        <div id="team-list"></div>
+      </div>
+
+      <div id="screen-log" class="screen" style="max-width:560px;">
+        <div class="page-title">Log a swap</div>
+        <div id="log-form"></div>
+      </div>
+
+      <div id="screen-manage" class="screen" style="max-width:560px;">
+        <div class="page-title">Manage team</div>
+        <div class="add-box">
+          <h3>Add a member</h3>
+
+          <div class="form-field">
+            <label>Full name</label>
+            <input type="text" id="new-name" placeholder="Full name">
+          </div>
+
+          <div class="form-field">
+            <label>Work time</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="new-work-start" placeholder="07:00">
+              <input type="text" id="new-work-end" placeholder="15:00">
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label>Days off — click to select</label>
+            <div class="day-pills" id="new-offdays">
+              <span class="day-pill" onclick="toggleNewDay(this)">Sun</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Mon</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Tue</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Wed</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Thu</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Fri</span>
+              <span class="day-pill" onclick="toggleNewDay(this)">Sat</span>
+            </div>
+          </div>
+
+          <button class="submit-btn" onclick="addMember()">Add member</button>
+        </div>
+        <div class="section-label">Remove members</div>
+        <div id="manage-list"></div>
+      </div>
+    </div>
+
+    <div class="mobile-nav">
+      <div class="mobile-nav-inner">
+        <button class="mob-nav-btn active" onclick="showScreen('overview')" id="mnav-overview">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview
+        </button>
+        <button class="mob-nav-btn" onclick="showScreen('team')" id="mnav-team">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team
+        </button>
+        <button class="mob-nav-btn" onclick="showScreen('log')" id="mnav-log">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Log
+        </button>
+        <button class="mob-nav-btn" onclick="showScreen('manage')" id="mnav-manage">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Manage
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="confirm-box">
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeOverlay()">Cancel</button>
+      <button class="btn-remove" onclick="confirmDelete()">Remove</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const AV = ['av-teal','av-blue','av-purple','av-coral','av-amber'];
-const avMap = {}, initMap = {};
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const AVC=[{bg:'#E1F5EE',text:'#0F6E56'},{bg:'#E6F1FB',text:'#185FA5'},{bg:'#EEEDFE',text:'#534AB7'},{bg:'#FAECE7',text:'#993C1D'},{bg:'#FAEEDA',text:'#854F0B'}];
+let adminName='',members=[],swaps=[],openPanels={},pendingDelete=null,activeTab='balances',currentScreen='overview';
+let newMemberOffDays=[];
+let editingSwap=null;
 
-const DEFAULT_MEMBERS = [
-  { name: 'Tiffany Badgett', role: 'Team member', offDays: ['Sun','Mon'] },
-  { name: 'Cory Nelson',     role: 'Team member', offDays: ['Mon','Tue'] },
-  { name: 'Kevin Atchson',   role: 'Team member', offDays: ['Sun','Mon','Tue'] },
-  { name: 'Mohamed',         role: 'Admin',       offDays: ['Fri','Sat'] },
-];
-const DEFAULT_SWAPS = [
-  { date: '2026-03-28', shift: 'Afternoon', owner: 'Tiffany Badgett', coveredBy: 'Mohamed', mult: 1, notes: '17:00–22:30' },
-  { date: '2026-03-13', shift: 'Night',     owner: 'Cory Nelson',     coveredBy: 'Mohamed', mult: 2, notes: '19:30–01:00 — bonus swap' },
-  { date: '2026-03-27', shift: 'Night',     owner: 'Cory Nelson',     coveredBy: 'Mohamed', mult: 1, notes: '19:30–01:00' },
-  { date: '2026-01-27', shift: 'Afternoon', owner: 'Mohamed',         coveredBy: 'Kevin Atchson', mult: 1, notes: '14:00–22:30' },
-];
+function getAv(n){const i=members.findIndex(m=>m.name===n);return AVC[Math.max(0,i)%AVC.length];}
+function inits(n){return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+function avHTML(n,sz=38){const av=getAv(n);return `<div class="avatar" style="width:${sz}px;height:${sz}px;font-size:${sz*0.34}px;background:${av.bg};color:${av.text};">${inits(n)}</div>`;}
 
-function loadData() {
-  try {
-    const m = localStorage.getItem('st_members');
-    const s = localStorage.getItem('st_swaps');
-    return {
-      members: m ? JSON.parse(m) : JSON.parse(JSON.stringify(DEFAULT_MEMBERS)),
-      swaps:   s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT_SWAPS)),
-    };
-  } catch(e) {
-    return {
-      members: JSON.parse(JSON.stringify(DEFAULT_MEMBERS)),
-      swaps:   JSON.parse(JSON.stringify(DEFAULT_SWAPS)),
-    };
-  }
+function formatTime(t){
+  return t || '';
 }
 
-function save() {
-  try {
-    localStorage.setItem('st_members', JSON.stringify(members));
-    localStorage.setItem('st_swaps',   JSON.stringify(swaps));
-  } catch(e) {}
+function workTimeText(m){
+  if(!m)return 'Not set';
+  if(m.workStart && m.workEnd)return `${formatTime(m.workStart)} - ${formatTime(m.workEnd)}`;
+  return 'Not set';
 }
 
-const stored = loadData();
-let members = stored.members;
-let swaps   = stored.swaps;
-let openPanels = {}, pendingDelete = null;
+function save(){try{localStorage.setItem('st_admin',adminName);localStorage.setItem('st_members',JSON.stringify(members));localStorage.setItem('st_swaps',JSON.stringify(swaps));}catch(e){}}
+function load(){try{const a=localStorage.getItem('st_admin');if(a){adminName=a;const m=localStorage.getItem('st_members');const s=localStorage.getItem('st_swaps');members=m?JSON.parse(m):[{name:a,role:'Admin',offDays:[],workStart:'',workEnd:''}];swaps=s?JSON.parse(s):[];return true;}}catch(e){}return false;}
 
-function setup() {
-  members.forEach((m, i) => {
-    avMap[m.name] = avMap[m.name] || AV[i % AV.length];
-    initMap[m.name] = initMap[m.name] || m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  });
+document.getElementById('setup-input').addEventListener('keydown',e=>{if(e.key==='Enter')finishSetup();});
+
+function finishSetup(){
+  const name=document.getElementById('setup-input').value.trim();
+  if(!name)return;
+  adminName=name;members=[{name,role:'Admin',offDays:[],workStart:'',workEnd:''}];swaps=[];
+  save();launchApp();
 }
 
-function balances() {
-  const me = 'Mohamed', b = {};
-  members.forEach(m => { if (m.name !== me) b[m.name] = 0; });
-  swaps.forEach(s => {
-    const v = s.mult || 1;
-    if (s.coveredBy === me && s.owner !== me && b[s.owner] !== undefined) b[s.owner] += v;
-    if (s.owner === me && s.coveredBy !== me && b[s.coveredBy] !== undefined) b[s.coveredBy] -= v;
-  });
+function launchApp(){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='flex';
+  const now=new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const av=getAv(adminName);
+  ['sidebar-av','mob-av'].forEach(id=>{const el=document.getElementById(id);el.style.background=av.bg;el.style.color=av.text;el.textContent=inits(adminName);});
+  document.getElementById('sidebar-sub').textContent=adminName+' · Admin';
+  document.getElementById('mob-month').textContent=now;
+  renderNewOffDays();
+  renderAll();
+}
+
+function renderNewOffDays(){
+  const el=document.getElementById('new-offdays');
+  if(!el)return;
+  el.innerHTML=DAYS.map(d=>`<span class="day-pill ${newMemberOffDays.includes(d)?'off':''}" onclick="toggleNewDay(this)">${d}</span>`).join('');
+}
+
+function computeBalances(){
+  const b={};
+  members.forEach(m=>{if(m.name!==adminName)b[m.name]=0;});
+  swaps.forEach(s=>{const v=s.mult||1;if(s.coveredBy===adminName&&s.owner!==adminName&&b[s.owner]!==undefined)b[s.owner]+=v;if(s.owner===adminName&&s.coveredBy!==adminName&&b[s.coveredBy]!==undefined)b[s.coveredBy]-=v;});
   return b;
 }
 
-function chevronSvg() {
-  return `<span class="chevron"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>`;
+function togglePanel(key){
+  openPanels[key]=!openPanels[key];
+  const panel=document.getElementById('panel-'+key);const chev=document.getElementById('chev-'+key);
+  if(panel)panel.classList.toggle('open',openPanels[key]);
+  if(chev)chev.classList.toggle('open',openPanels[key]);
 }
 
-function renderBalances() {
-  setup();
-  const b = balances();
-  let html = '';
-  members.filter(m => m.name !== 'Mohamed').forEach(m => {
-    const v = b[m.name] || 0;
-    const cls = v > 0 ? 'badge-pos' : v < 0 ? 'badge-neg' : 'badge-zero';
-    const lbl = v > 0 ? `+${v} owes you` : v < 0 ? `${Math.abs(v)} you owe` : 'Even';
-    const key = 'b_' + m.name;
-    html += `<div class="card">
-      <div class="card-row" onclick="toggle('${key}', this)">
-        <div class="avatar ${avMap[m.name]}">${initMap[m.name]}</div>
-        <div class="person-info">
-          <div class="person-name">${m.name}</div>
-          <div class="person-sub">${m.offDays.length ? 'Off: ' + m.offDays.join(', ') : 'No days off set'}</div>
-        </div>
-        <span class="badge ${cls}">${lbl}</span>
-        <span class="chevron ${openPanels[key]?'open':''}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-      </div>
-      <div class="off-panel ${openPanels[key]?'open':''}">
-        <div class="off-label">Days off</div>
-        <div class="day-pills">${DAYS.map(d=>`<span class="day-pill ${m.offDays.includes(d)?'off':''}">${d}</span>`).join('')}</div>
-        <div class="off-hint">${m.offDays.length ? m.offDays.join(', ') : 'None set'}</div>
-      </div>
-    </div>`;
-  });
-  document.getElementById('balance-list').innerHTML = html || '<div class="empty">No team members yet.</div>';
-  const redeem = Object.values(b).filter(x=>x>0).reduce((a,c)=>a+c,0);
-  const owe = Math.abs(Object.values(b).filter(x=>x<0).reduce((a,c)=>a+c,0));
-  document.getElementById('m-redeemable').textContent = redeem;
-  document.getElementById('m-owe').textContent = owe;
-  document.getElementById('m-swaps').textContent = swaps.length;
+function toggleDay(name,day){
+  const m=members.find(x=>x.name===name);if(!m)return;
+  const idx=m.offDays.indexOf(day);if(idx>-1)m.offDays.splice(idx,1);else m.offDays.push(day);
+  save();renderAll();
 }
 
-function renderLog() {
-  const sorted = [...swaps].sort((a,b) => b.date.localeCompare(a.date));
-  document.getElementById('log-list').innerHTML = sorted.map(s => {
-    const tc = s.shift==='Afternoon'?'tag-afternoon':s.shift==='Night'?'tag-night':'tag-morning';
-    const d = new Date(s.date+'T12:00:00');
-    const ds = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const bb = s.mult > 1 ? `<span class="badge-bonus">×${s.mult} bonus</span>` : '';
-    return `<div class="card" style="margin-bottom:10px;">
-      <div class="card-row" style="cursor:default;flex-wrap:wrap;">
-        <div class="person-info">
-          <div class="person-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${s.coveredBy} → ${s.owner} ${bb}</div>
-          <div class="log-meta">${ds} <span class="shift-tag ${tc}">${s.shift}</span></div>
-          ${s.notes?`<div style="font-size:12px;color:var(--text-muted);margin-top:3px;">${s.notes}</div>`:''}
-        </div>
-      </div>
-    </div>`;
+function renderBalances(){
+  const b=computeBalances();
+  const redeem=Object.values(b).filter(x=>x>0).reduce((a,c)=>a+c,0);
+  const owe=Math.abs(Object.values(b).filter(x=>x<0).reduce((a,c)=>a+c,0));
+  document.getElementById('m-redeem').textContent=redeem;
+  document.getElementById('m-owe').textContent=owe;
+  document.getElementById('m-swaps').textContent=swaps.length;
+  const nonAdmin=members.filter(m=>m.name!==adminName);
+  if(!nonAdmin.length){document.getElementById('balance-list').innerHTML='<div class="empty">No team members yet — add some in Manage.</div>';return;}
+  document.getElementById('balance-list').innerHTML=nonAdmin.map(m=>{
+    const bal=b[m.name]||0;const cls=bal>0?'badge-pos':bal<0?'badge-neg':'badge-zero';
+    const lbl=bal>0?`+${bal} owes you`:bal<0?`${Math.abs(bal)} you owe`:'Even';
+    const key='b_'+m.name.replace(/\s/g,'_');
+    return `<div class="card"><div class="card-row" onclick="togglePanel('${key}')">
+      ${avHTML(m.name)}<div style="flex:1;"><div style="font-size:15px;font-weight:500;">${m.name}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:1px;">${m.offDays.length?'Off: '+m.offDays.join(', '):'No days off set'} · Works: ${workTimeText(m)}</div></div>
+      <span class="badge ${cls}">${lbl}</span>
+      <span class="chevron ${openPanels[key]?'open':''}" id="chev-${key}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div><div class="off-panel ${openPanels[key]?'open':''}" id="panel-${key}">
+      <div class="off-label">Days off</div>
+      <div class="day-pills">${DAYS.map(d=>`<span class="day-pill ${m.offDays.includes(d)?'off':''}">${d}</span>`).join('')}</div>
+    </div></div>`;
   }).join('');
 }
 
-function renderTeam() {
-  setup();
-  let html = '';
-  members.forEach(m => {
-    const key = 't_' + m.name;
-    html += `<div class="card" style="margin-bottom:10px;">
-      <div class="card-row" onclick="toggle('${key}', this)">
-        <div class="avatar ${avMap[m.name]}">${initMap[m.name]}</div>
-        <div class="person-info">
-          <div class="person-name">${m.name}</div>
-          <div class="person-sub">${m.role} · Off: ${m.offDays.length?m.offDays.join(', '):'none'}</div>
+function renderLog(){
+  const sorted=[...swaps].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!sorted.length){document.getElementById('log-list').innerHTML='<div class="empty">No swaps logged yet.</div>';return;}
+  document.getElementById('log-list').innerHTML=sorted.map((s,i)=>{
+    const idx=swaps.indexOf(s);
+    const tc=s.shift==='Afternoon'?'tag-afternoon':s.shift==='Night'?'tag-night':'tag-morning';
+    const d=new Date(s.date+'T12:00:00');const ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const bb=s.mult>1?`<span class="badge-bonus">×${s.mult} bonus</span>`:'';
+    const isEditing=editingSwap===idx;
+    return `<div class="card" style="margin-bottom:10px;"><div class="card-row" style="cursor:default;">
+      <div style="flex:1;">
+        <div style="font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${s.coveredBy} → ${s.owner} ${bb}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;">${ds}<span class="shift-tag ${tc}">${s.shift}</span></div>
+        ${s.notes?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">${s.notes}</div>`:''}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="startEdit(${idx})" style="padding:6px 10px;border-radius:8px;border:1px solid #ccc;background:white;cursor:pointer;">Edit</button>
+          <button onclick="deleteSwap(${idx})" style="padding:6px 10px;border-radius:8px;border:1px solid #f0997b;background:#FAECE7;color:#993C1D;cursor:pointer;">Delete</button>
         </div>
-        <span class="chevron ${openPanels[key]?'open':''}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-      </div>
-      <div class="off-panel ${openPanels[key]?'open':''}">
-        <div class="off-label">Days off — tap to edit</div>
-        <div class="day-pills">${DAYS.map(d=>`<span class="day-pill ${m.offDays.includes(d)?'off':''}" onclick="toggleDay('${m.name}','${d}')">${d}</span>`).join('')}</div>
-        <div class="off-hint">Tap a day to toggle</div>
-      </div>
-    </div>`;
-  });
-  document.getElementById('team-list').innerHTML = html;
+      </div></div>
+      <div class="edit-form ${isEditing?'show':''}" id="edit-${idx}">
+        <div class="edit-row"><label>Date</label><input type="date" id="e-date-${idx}" value="${s.date}"></div>
+        <div class="edit-row"><label>Shift</label><select id="e-shift-${idx}"><option ${s.shift==='Morning'?'selected':''}>Morning</option><option ${s.shift==='Afternoon'?'selected':''}>Afternoon</option><option ${s.shift==='Night'?'selected':''}>Night</option></select></div>
+        <div class="edit-row"><label>Owner</label><input id="e-owner-${idx}" value="${s.owner}"></div>
+        <div class="edit-row"><label>Covered by</label><input id="e-covered-${idx}" value="${s.coveredBy}"></div>
+        <div class="edit-row"><label>Multiplier</label><input type="number" id="e-mult-${idx}" value="${s.mult}" min="1"></div>
+        <div class="edit-row"><label>Notes</label><input id="e-notes-${idx}" value="${s.notes||''}"></div>
+        <div class="edit-actions">
+          <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
+          <button class="btn-save" onclick="saveEdit(${idx})">Save</button>
+        </div>
+      </div></div>`;
+  }).join('');
 }
 
-function renderManage() {
-  setup();
-  const nonAdmin = members.filter(m => m.role !== 'Admin');
-  let html = '';
-  nonAdmin.forEach(m => {
-    html += `<div class="card" style="margin-bottom:10px;">
-      <div class="card-row" style="cursor:default;">
-        <div class="avatar ${avMap[m.name]}">${initMap[m.name]}</div>
-        <div class="person-info"><div class="person-name">${m.name}</div><div class="person-sub">${m.role}</div></div>
-        <button class="delete-btn" onclick="askDelete('${m.name}')">
-          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>
-      </div>
-    </div>`;
-  });
-  document.getElementById('manage-list').innerHTML = html || '<div class="empty">No members to remove.</div>';
+function renderTeam(){
+  document.getElementById('team-list').innerHTML=members.map(m=>{
+    const key='t_'+m.name.replace(/\s/g,'_');
+    const ab=m.name===adminName?`<span style="font-size:11px;background:var(--green-light);color:var(--green-dark);border-radius:99px;padding:2px 8px;margin-left:8px;font-weight:600;">Admin</span>`:'';
+    return `<div class="card"><div class="card-row" onclick="togglePanel('${key}')">
+      ${avHTML(m.name)}<div style="flex:1;"><div style="font-size:15px;font-weight:500;">${m.name}${ab}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:1px;">Off: ${m.offDays.length?m.offDays.join(', '):'none'} · Works: ${workTimeText(m)}</div></div>
+      <span class="chevron ${openPanels[key]?'open':''}" id="chev-${key}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div><div class="off-panel ${openPanels[key]?'open':''}" id="panel-${key}">
+      <div class="off-label">Days off — click to edit</div>
+      <div class="day-pills">${DAYS.map(d=>`<span class="day-pill ${m.offDays.includes(d)?'off':''}" onclick="toggleDay('${m.name}','${d}')">${d}</span>`).join('')}</div>
+      <div style="font-size:11px;color:var(--muted);">Click a day to toggle</div>
+    </div></div>`;
+  }).join('');
 }
 
-function renderFormDropdowns() {
-  const nonAdmin = members.filter(m => m.role !== 'Admin');
-  document.getElementById('f-owner').innerHTML = nonAdmin.map(m=>`<option>${m.name}</option>`).join('');
-  document.getElementById('f-coveredby').innerHTML = members.map(m=>`<option>${m.name==='Mohamed'?m.name+' (you)':m.name}</option>`).join('');
+function renderLogForm(){
+  if(members.filter(m=>m.name!==adminName).length===0){document.getElementById('log-form').innerHTML='<div class="empty">Add team members first in the Manage screen.</div>';return;}
+  const ownerOpts=members.map(m=>`<option>${m.name}</option>`).join('');
+  const covOpts=members.map(m=>`<option>${m.name===adminName?m.name+' (you)':m.name}</option>`).join('');
+  document.getElementById('log-form').innerHTML=`
+    <div class="form-field"><label>Date</label><input type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="form-field"><label>Shift time</label><select id="f-shift"><option>Morning</option><option selected>Afternoon</option><option>Night</option></select></div>
+    <div class="form-field"><label>Shift owner</label>
+      <select id="f-owner" onchange="renderFormOffDays()">${ownerOpts}</select>
+      <div class="form-offdays">
+        <div class="off-label">Off days <span id="saved-flash" style="font-size:11px;color:var(--green);font-weight:600;opacity:0;transition:opacity 0.2s;margin-left:6px;">✓ Saved</span></div>
+        <div class="day-pills" id="form-off-pills"></div>
+        <div id="owner-info" style="margin-top:10px;font-size:13px;color:var(--green-dark);font-weight:600;"></div>
+      </div>
+    </div>
+    <div class="form-field"><label>Covered by</label><select id="f-coveredby">${covOpts}</select></div>
+    <div class="divider"></div>
+    <div class="form-field"><label>Payback multiplier</label>
+      <div class="mult-row">
+        <input type="number" id="f-mult" class="mult-input" value="1" min="1" max="20" step="1" oninput="updateMultHint()">
+        <span style="font-size:13px;color:var(--muted);" id="mult-hint">Standard — 1 shift back</span>
+      </div>
+      <div class="bonus-note" id="bonus-note"></div>
+    </div>
+    <div class="form-field"><label>Notes / hours</label><textarea id="f-notes" placeholder="e.g. 17:00–22:30"></textarea></div>
+    <button class="submit-btn" onclick="logSwap()">Log swap</button>`;
   renderFormOffDays();
+  const covSel=document.getElementById('f-coveredby');
+  for(let i=0;i<covSel.options.length;i++){if(covSel.options[i].value===adminName+' (you)'){covSel.selectedIndex=i;break;}}
 }
 
-function renderFormOffDays() {
-  const name = document.getElementById('f-owner').value;
-  const m = members.find(x=>x.name===name);
-  const off = m ? m.offDays : [];
-  document.getElementById('form-off-pills').innerHTML = DAYS.map(d =>
-    `<span class="day-pill ${off.includes(d)?'off':''}" onclick="toggleFormDay('${d}')">${d}</span>`
-  ).join('');
+function renderFormOffDays(){
+  const name=document.getElementById('f-owner')?.value;
+  const m=members.find(x=>x.name===name);
+  const off=m?m.offDays:[];
+
+  const el=document.getElementById('form-off-pills');if(!el)return;
+  el.innerHTML=DAYS.map(d=>`<span class="day-pill ${off.includes(d)?'off':''}">${d}</span>`).join('');
+
+  const info=document.getElementById('owner-info');
+  if(info){
+    info.innerHTML=`
+      <div>Off Days: ${off.length?off.join(', '):'None set'}</div>
+      <div>Work Time: ${workTimeText(m)}</div>
+    `;
+  }
 }
 
-function toggleFormDay(day) {
-  const name = document.getElementById('f-owner').value;
-  const m = members.find(x=>x.name===name);
-  if (!m) return;
-  const idx = m.offDays.indexOf(day);
-  if (idx > -1) m.offDays.splice(idx,1); else m.offDays.push(day);
-  save(); renderFormOffDays();
-  const flash = document.getElementById('saved-flash');
-  flash.classList.add('show');
-  setTimeout(() => flash.classList.remove('show'), 2000);
+function toggleFormDay(day){
+  const name=document.getElementById('f-owner')?.value;const m=members.find(x=>x.name===name);if(!m)return;
+  const idx=m.offDays.indexOf(day);if(idx>-1)m.offDays.splice(idx,1);else m.offDays.push(day);
+  save();renderFormOffDays();
+  const f=document.getElementById('saved-flash');if(f){f.style.opacity=1;setTimeout(()=>f.style.opacity=0,2000);}
 }
 
-function toggleDay(name, day) {
-  const m = members.find(x=>x.name===name);
-  if (!m) return;
-  const idx = m.offDays.indexOf(day);
-  if (idx > -1) m.offDays.splice(idx,1); else m.offDays.push(day);
-  save(); renderTeam(); renderBalances();
+function updateMultHint(){
+  const v=parseInt(document.getElementById('f-mult')?.value)||1;
+  const hint=document.getElementById('mult-hint');const note=document.getElementById('bonus-note');
+  if(hint)hint.textContent=v<=1?'Standard — 1 shift back':`Bonus — ${v} shifts back`;
+  if(note){note.textContent=`⭐ Covering 1 shift earns ${v} shifts back`;note.classList.toggle('show',v>1);}
 }
 
-function toggle(key, row) {
-  openPanels[key] = !openPanels[key];
-  const panel = row.nextElementSibling;
-  const chevron = row.querySelector('.chevron');
-  if (panel) panel.classList.toggle('open', openPanels[key]);
-  if (chevron) chevron.classList.toggle('open', openPanels[key]);
+function logSwap(){
+  const date=document.getElementById('f-date')?.value;if(!date){alert('Please pick a date.');return;}
+  swaps.push({date,shift:document.getElementById('f-shift').value,owner:document.getElementById('f-owner').value,coveredBy:document.getElementById('f-coveredby').value.replace(' (you)',''),mult:parseInt(document.getElementById('f-mult').value)||1,notes:document.getElementById('f-notes').value});
+  save();showScreen('overview');
 }
 
-function updateMultHint() {
-  const v = parseInt(document.getElementById('f-mult').value) || 1;
-  document.getElementById('mult-hint').textContent = v <= 1 ? 'Standard — 1 shift back' : `Bonus — ${v} shifts back`;
-  const bn = document.getElementById('bonus-note');
-  bn.classList.toggle('show', v > 1);
-  document.getElementById('bonus-text').textContent = `Covering 1 shift earns ${v} shifts back`;
+function renderManage(){
+  const nonAdmin=members.filter(m=>m.name!==adminName);
+  document.getElementById('manage-list').innerHTML=nonAdmin.length?nonAdmin.map(m=>`
+    <div class="card"><div class="card-row" style="cursor:default;">
+      ${avHTML(m.name)}<div style="flex:1;"><div style="font-size:15px;font-weight:500;">${m.name}</div><div style="font-size:12px;color:var(--muted);">${m.role}</div></div>
+      <button class="delete-btn" onclick="askDelete('${m.name}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+    </div></div>`).join(''):'<div class="empty">No members to remove.</div>';
 }
 
-function logSwap() {
-  const date = document.getElementById('f-date').value;
-  if (!date) { alert('Please pick a date.'); return; }
-  swaps.push({
-    date,
-    shift: document.getElementById('f-shift').value,
-    owner: document.getElementById('f-owner').value,
-    coveredBy: document.getElementById('f-coveredby').value.replace(' (you)',''),
-    mult: parseInt(document.getElementById('f-mult').value)||1,
-    notes: document.getElementById('f-notes').value
+function toggleNewDay(el){
+  const day=el.textContent.trim();
+  if(newMemberOffDays.includes(day)){
+    newMemberOffDays=newMemberOffDays.filter(d=>d!==day);
+  } else {
+    newMemberOffDays.push(day);
+  }
+  renderNewOffDays();
+}
+
+function resetNewMemberForm(){
+  const name=document.getElementById('new-name');
+  const start=document.getElementById('new-work-start');
+  const end=document.getElementById('new-work-end');
+
+  if(name)name.value='';
+  if(start)start.value='';
+  if(end)end.value='';
+
+  newMemberOffDays=[];
+  document.querySelectorAll('#new-offdays .day-pill').forEach(p=>p.classList.remove('off'));
+}
+
+function addMember(){
+  const inp=document.getElementById('new-name');
+  const start=document.getElementById('new-work-start');
+  const end=document.getElementById('new-work-end');
+
+  const name=inp.value.trim();
+  const workStart=start.value;
+  const workEnd=end.value;
+
+  if(!name)return;
+
+  if(members.find(m=>m.name===name)){
+    alert('Name already exists.');
+    return;
+  }
+
+  members.push({
+    name,
+    role:'Team member',
+    offDays:[...newMemberOffDays],
+    workStart,
+    workEnd
   });
+
+  resetNewMemberForm();
   save();
-  document.getElementById('f-mult').value = 1;
-  document.getElementById('f-notes').value = '';
-  updateMultHint();
-  showScreen('screen-overview');
+  renderAll();
 }
 
-function addMember() {
-  const inp = document.getElementById('new-name');
-  const name = inp.value.trim();
-  if (!name) return;
-  if (members.find(m=>m.name===name)) { alert('Name already exists.'); return; }
-  members.push({ name, role: 'Team member', offDays: [] });
-  avMap[name] = AV[members.length % AV.length];
-  initMap[name] = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  inp.value = '';
-  save(); renderManage(); renderTeam(); renderBalances(); renderFormDropdowns();
+function askDelete(name){pendingDelete=name;document.getElementById('confirm-msg').textContent=`Remove ${name}? Their swap history will also be removed.`;document.getElementById('overlay').classList.add('show');}
+function closeOverlay(){pendingDelete=null;document.getElementById('overlay').classList.remove('show');}
+function confirmDelete(){members=members.filter(m=>m.name!==pendingDelete);swaps=swaps.filter(s=>s.owner!==pendingDelete&&s.coveredBy!==pendingDelete);save();closeOverlay();renderAll();}
+
+function showTab(tab){
+  activeTab=tab;
+  document.getElementById('tab-balances').style.display=tab==='balances'?'block':'none';
+  document.getElementById('tab-swaplog').style.display=tab==='swaplog'?'block':'none';
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',(i===0&&tab==='balances')||(i===1&&tab==='swaplog')));
+  if(tab==='swaplog')renderLog();
 }
 
-function askDelete(name) {
-  pendingDelete = name;
-  document.getElementById('confirm-msg').textContent = `Remove ${name}? Their swap history will be kept.`;
-  document.getElementById('overlay').classList.add('show');
-}
-function closeOverlay() { pendingDelete=null; document.getElementById('overlay').classList.remove('show'); }
-function confirmDelete() {
-  members = members.filter(m=>m.name!==pendingDelete);
-  save(); closeOverlay(); renderManage(); renderTeam(); renderBalances(); renderFormDropdowns();
-}
-
-function showTab(tab) {
-  document.getElementById('tab-balances').style.display = tab==='balances'?'block':'none';
-  document.getElementById('tab-log').style.display = tab==='log'?'block':'none';
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active',(i===0&&tab==='balances')||(i===1&&tab==='log')));
-  if (tab==='log') renderLog();
-}
-
-function showScreen(id) {
+function showScreen(id){
+  currentScreen=id;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  if (id==='screen-overview') renderBalances();
-  if (id==='screen-team') renderTeam();
-  if (id==='screen-manage') renderManage();
-  if (id==='screen-log') renderFormDropdowns();
+  document.getElementById('screen-'+id).classList.add('active');
+  ['overview','team','log','manage'].forEach(s=>{
+    document.getElementById('nav-'+s)?.classList.toggle('active',s===id);
+    document.getElementById('mnav-'+s)?.classList.toggle('active',s===id);
+  });
+  if(id==='overview'){renderBalances();if(activeTab==='swaplog')renderLog();}
+  if(id==='team')renderTeam();
+  if(id==='log')renderLogForm();
+  if(id==='manage')renderManage();
 }
 
-// Init
-document.getElementById('topbar-month').textContent = new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
-document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
-setup(); renderBalances(); renderFormDropdowns();
+function renderAll(){
+  if(currentScreen==='overview'){renderBalances();if(activeTab==='swaplog')renderLog();}
+  if(currentScreen==='team')renderTeam();
+  if(currentScreen==='log')renderLogForm();
+  if(currentScreen==='manage')renderManage();
+}
+
+
+function deleteSwap(index) {
+  if (!confirm('Delete this swap log?')) return;
+  swaps.splice(index, 1);
+  save();
+  renderAll();
+}
+
+function startEdit(idx){
+  editingSwap=idx;
+  renderLog();
+}
+
+function cancelEdit(){
+  editingSwap=null;
+  renderLog();
+}
+
+function saveEdit(idx){
+  swaps[idx]={
+    date:document.getElementById(`e-date-${idx}`).value,
+    shift:document.getElementById(`e-shift-${idx}`).value,
+    owner:document.getElementById(`e-owner-${idx}`).value,
+    coveredBy:document.getElementById(`e-covered-${idx}`).value,
+    mult:parseInt(document.getElementById(`e-mult-${idx}`).value)||1,
+    notes:document.getElementById(`e-notes-${idx}`).value
+  };
+  editingSwap=null;
+  save();
+  renderAll();
+}
+
+if(load())launchApp();
 </script>
 </body>
 </html>
